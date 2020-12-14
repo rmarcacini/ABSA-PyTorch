@@ -128,9 +128,6 @@ class ABSADataset(Dataset):
         fin = open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
         lines = fin.readlines()
         fin.close()
-        fin = open(fname+'.graph', 'rb')
-        idx2graph = pickle.load(fin)
-        fin.close()
 
         all_data = []
         for i in range(0, len(lines), 3):
