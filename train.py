@@ -182,8 +182,10 @@ class Instructor:
 def main():
     # Hyper Parameters
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', default='bert_spc', type=str)
-    parser.add_argument('--dataset', default='laptop', type=str, help='twitter, restaurant, laptop')
+    parser.add_argument('--model_name', default='lcf_bert', type=str)
+    parser.add_argument('--dataset', default='evernote', type=str, help='app_name')
+    parser.add_argument('--train_file', type=str)
+    parser.add_argument('--test_file', type=str)
     parser.add_argument('--optimizer', default='adam', type=str)
     parser.add_argument('--initializer', default='xavier_uniform_', type=str)
     parser.add_argument('--lr', default=2e-5, type=float, help='try 5e-5, 2e-5 for BERT, 1e-3 for others')
@@ -218,56 +220,16 @@ def main():
         os.environ['PYTHONHASHSEED'] = str(opt.seed)
 
     model_classes = {
-        'lstm': LSTM,
-        'td_lstm': TD_LSTM,
-        'tc_lstm': TC_LSTM,
-        'atae_lstm': ATAE_LSTM,
-        'ian': IAN,
-        'memnet': MemNet,
-        'ram': RAM,
-        'cabasc': Cabasc,
-        'tnet_lf': TNet_LF,
-        'aoa': AOA,
-        'mgan': MGAN,
-        'asgcn': ASGCN,
-        'bert_spc': BERT_SPC,
-        'aen_bert': AEN_BERT,
         'lcf_bert': LCF_BERT,
-        # default hyper-parameters for LCF-BERT model is as follws:
-        # lr: 2e-5
-        # l2: 1e-5
-        # batch size: 16
-        # num epochs: 5
     }
-    dataset_files = {
-        'twitter': {
-            'train': './datasets/acl-14-short-data/train.raw',
-            'test': './datasets/acl-14-short-data/test.raw'
-        },
-        'restaurant': {
-            'train': './datasets/semeval14/Restaurants_Train.xml.seg',
-            'test': './datasets/semeval14/Restaurants_Test_Gold.xml.seg'
-        },
-        'laptop': {
-            'train': './datasets/semeval14/Laptops_Train.xml.seg',
-            'test': './datasets/semeval14/Laptops_Test_Gold.xml.seg'
-        }
-    }
+    
+    dataset_files = {}
+    dataset_files[opt.dataset] = {}
+    dataset_files[opt.dataset]['train'] = opt.train_file
+    dataset_files[opt.dataset]['test'] = opt.test_file # nao considerar para geracao de metricas
+    
+
     input_colses = {
-        'lstm': ['text_indices'],
-        'td_lstm': ['left_with_aspect_indices', 'right_with_aspect_indices'],
-        'tc_lstm': ['left_with_aspect_indices', 'right_with_aspect_indices', 'aspect_indices'],
-        'atae_lstm': ['text_indices', 'aspect_indices'],
-        'ian': ['text_indices', 'aspect_indices'],
-        'memnet': ['context_indices', 'aspect_indices'],
-        'ram': ['text_indices', 'aspect_indices', 'left_indices'],
-        'cabasc': ['text_indices', 'aspect_indices', 'left_with_aspect_indices', 'right_with_aspect_indices'],
-        'tnet_lf': ['text_indices', 'aspect_indices', 'aspect_boundary'],
-        'aoa': ['text_indices', 'aspect_indices'],
-        'mgan': ['text_indices', 'aspect_indices', 'left_indices'],
-        'asgcn': ['text_indices', 'aspect_indices', 'left_indices', 'dependency_graph'],
-        'bert_spc': ['concat_bert_indices', 'concat_segments_indices'],
-        'aen_bert': ['text_bert_indices', 'aspect_bert_indices'],
         'lcf_bert': ['concat_bert_indices', 'concat_segments_indices', 'text_bert_indices', 'aspect_bert_indices'],
     }
     initializers = {
