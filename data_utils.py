@@ -169,7 +169,6 @@ class ABSADataset(Dataset):
                 'right_with_aspect_indices': right_with_aspect_indices,
                 'aspect_indices': aspect_indices,
                 'aspect_boundary': aspect_boundary,
-                'dependency_graph': dependency_graph,
                 'polarity': polarity,
             }
 
