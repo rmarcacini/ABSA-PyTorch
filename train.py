@@ -19,7 +19,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
 
 from data_utils import build_tokenizer, build_embedding_matrix, Tokenizer4Bert, IOBDataset
-from models import RE_BERT, LCF_BERT
+from models.re_bert import RE_BERT
+from models.lcf_bert import LCF_BERT
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -35,13 +36,6 @@ class Instructor:
         self.model = opt.model_class(bert, opt).to(opt.device)
 
         self.trainset = IOBDataset(opt.dataset_file['train'], tokenizer)
-        self.testset = IOBDataset(opt.dataset_file['test'], tokenizer)
-        assert 0 <= opt.valset_ratio < 1
-        if opt.valset_ratio > 0:
-            valset_len = int(len(self.trainset) * opt.valset_ratio)
-            self.trainset, self.valset = random_split(self.trainset, (len(self.trainset)-valset_len, valset_len))
-        else:
-            self.valset = self.testset
 
         if opt.device.type == 'cuda':
             logger.info('cuda memory allocated: {}'.format(torch.cuda.memory_allocated(device=opt.device.index)))
@@ -79,7 +73,7 @@ class Instructor:
         path = None
         for i_epoch in range(self.opt.num_epoch):
             logger.info('>' * 100)
-            logger.info('epoch: {}'.format(i_epoch))
+            logger.info('epoch: {}'.format(i_epoch+1))
             n_correct, n_total, loss_total = 0, 0, 0
             # switch model to training mode
             self.model.train()
@@ -108,7 +102,7 @@ class Instructor:
             if not os.path.exists('trained_models'):
                     os.mkdir('trained_models')
             path_name = 'trained_models/{0}_{1}_iob_epoch_'+str(i_epoch+1)+'.model'
-            path = path_name.format(self.opt.model_name, self.opt.dataset, round(val_acc, 4))
+            path = path_name.format(self.opt.model_name, self.opt.dataset)
             torch.save(self.model.state_dict(), path)
             logger.info('>> saved: {}'.format(path))
 
@@ -150,11 +144,9 @@ class Instructor:
         optimizer = self.opt.optimizer(_params, lr=self.opt.lr, weight_decay=self.opt.l2reg)
 
         train_data_loader = DataLoader(dataset=self.trainset, batch_size=self.opt.batch_size, shuffle=True)
-        test_data_loader = DataLoader(dataset=self.testset, batch_size=self.opt.batch_size, shuffle=False)
-        val_data_loader = DataLoader(dataset=self.valset, batch_size=self.opt.batch_size, shuffle=False)
 
         self._reset_params()
-        best_model_path = self._train(criterion, optimizer, train_data_loader, val_data_loader)
+        best_model_path = self._train(criterion, optimizer, train_data_loader, train_data_loader)
 
 
 def main():
@@ -202,7 +194,6 @@ def main():
     dataset_files = {}
     dataset_files[opt.dataset] = {}
     dataset_files[opt.dataset]['train'] = opt.train_file
-    dataset_files[opt.dataset]['test'] = opt.train_file # nao considerar para geracao de metricas
     
 
     input_colses = {
