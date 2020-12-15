@@ -1,7 +1,5 @@
-# -*- coding: utf-8 -*-
-# file: train.py
-# author: songyouwei <youwei0314@gmail.com>
-# Copyright (C) 2018. All Rights Reserved.
+# RE-BERT training model
+# Adapted from LCF-BERT (ABSA-Pytorch)
 
 import logging
 import argparse
@@ -20,10 +18,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
 
-from data_utils import build_tokenizer, build_embedding_matrix, Tokenizer4Bert, ABSADataset
-from models import LSTM, IAN, MemNet, RAM, TD_LSTM, TC_LSTM, Cabasc, ATAE_LSTM, TNet_LF, AOA, MGAN, ASGCN, LCF_BERT
-from models.aen import CrossEntropyLoss_LSR, AEN_BERT
-from models.bert_spc import BERT_SPC
+from data_utils import build_tokenizer, build_embedding_matrix, Tokenizer4Bert, IOBDataset
+from models import RE_BERT, LCF_BERT
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -33,24 +29,13 @@ logger.addHandler(logging.StreamHandler(sys.stdout))
 class Instructor:
     def __init__(self, opt):
         self.opt = opt
+        
+        tokenizer = Tokenizer4Bert(opt.max_seq_len, opt.pretrained_bert_name)
+        bert = BertModel.from_pretrained(opt.pretrained_bert_name)
+        self.model = opt.model_class(bert, opt).to(opt.device)
 
-        if 'bert' in opt.model_name:
-            tokenizer = Tokenizer4Bert(opt.max_seq_len, opt.pretrained_bert_name)
-            bert = BertModel.from_pretrained(opt.pretrained_bert_name)
-            self.model = opt.model_class(bert, opt).to(opt.device)
-        else:
-            tokenizer = build_tokenizer(
-                fnames=[opt.dataset_file['train'], opt.dataset_file['test']],
-                max_seq_len=opt.max_seq_len,
-                dat_fname='{0}_tokenizer.dat'.format(opt.dataset))
-            embedding_matrix = build_embedding_matrix(
-                word2idx=tokenizer.word2idx,
-                embed_dim=opt.embed_dim,
-                dat_fname='{0}_{1}_embedding_matrix.dat'.format(str(opt.embed_dim), opt.dataset))
-            self.model = opt.model_class(embedding_matrix, opt).to(opt.device)
-
-        self.trainset = ABSADataset(opt.dataset_file['train'], tokenizer)
-        self.testset = ABSADataset(opt.dataset_file['test'], tokenizer)
+        self.trainset = IOBDataset(opt.dataset_file['train'], tokenizer)
+        self.testset = IOBDataset(opt.dataset_file['test'], tokenizer)
         assert 0 <= opt.valset_ratio < 1
         if opt.valset_ratio > 0:
             valset_len = int(len(self.trainset) * opt.valset_ratio)
@@ -117,20 +102,16 @@ class Instructor:
                 if global_step % self.opt.log_step == 0:
                     train_acc = n_correct / n_total
                     train_loss = loss_total / n_total
-                    logger.info('loss: {:.4f}, acc: {:.4f}'.format(train_loss, train_acc))
+                    logger.info('loss: {:.4f}'.format(train_loss))
 
-            val_acc, val_f1 = self._evaluate_acc_f1(val_data_loader)
-            logger.info('> val_acc: {:.4f}, val_f1: {:.4f}'.format(val_acc, val_f1))
-            if val_acc > max_val_acc:
-                max_val_acc = val_acc
-                max_val_epoch = i_epoch
-                if not os.path.exists('state_dict'):
-                    os.mkdir('state_dict')
-                path = 'state_dict/{0}_{1}_val_acc_{2}'.format(self.opt.model_name, self.opt.dataset, round(val_acc, 4))
-                torch.save(self.model.state_dict(), path)
-                logger.info('>> saved: {}'.format(path))
-            if val_f1 > max_val_f1:
-                max_val_f1 = val_f1
+
+            if not os.path.exists('trained_models'):
+                    os.mkdir('trained_models')
+            path_name = 'trained_models/{0}_{1}_iob_epoch_'+str(i_epoch+1)+'.model'
+            path = path_name.format(self.opt.model_name, self.opt.dataset, round(val_acc, 4))
+            torch.save(self.model.state_dict(), path)
+            logger.info('>> saved: {}'.format(path))
+
             if i_epoch - max_val_epoch >= self.opt.patience:
                 print('>> early stop.')
                 break
@@ -174,41 +155,36 @@ class Instructor:
 
         self._reset_params()
         best_model_path = self._train(criterion, optimizer, train_data_loader, val_data_loader)
-        self.model.load_state_dict(torch.load(best_model_path))
-        test_acc, test_f1 = self._evaluate_acc_f1(test_data_loader)
-        logger.info('>> test_acc: {:.4f}, test_f1: {:.4f}'.format(test_acc, test_f1))
 
 
 def main():
     # Hyper Parameters
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model_name', default='lcf_bert', type=str)
+    parser.add_argument('--model_name', default='RE_BERT', type=str)
     parser.add_argument('--dataset', default='evernote', type=str, help='app_name')
     parser.add_argument('--train_file', type=str)
-    parser.add_argument('--test_file', type=str)
     parser.add_argument('--optimizer', default='adam', type=str)
     parser.add_argument('--initializer', default='xavier_uniform_', type=str)
     parser.add_argument('--lr', default=2e-5, type=float, help='try 5e-5, 2e-5 for BERT, 1e-3 for others')
     parser.add_argument('--dropout', default=0.1, type=float)
     parser.add_argument('--l2reg', default=0.01, type=float)
-    parser.add_argument('--num_epoch', default=20, type=int, help='try larger number for non-BERT models')
+    parser.add_argument('--num_epoch', default=1, type=int, help='try larger number for non-BERT models')
     parser.add_argument('--batch_size', default=16, type=int, help='try 16, 32, 64 for BERT models')
     parser.add_argument('--log_step', default=10, type=int)
-    parser.add_argument('--embed_dim', default=300, type=int)
-    parser.add_argument('--hidden_dim', default=300, type=int)
     parser.add_argument('--bert_dim', default=768, type=int)
     parser.add_argument('--pretrained_bert_name', default='bert-base-uncased', type=str)
-    parser.add_argument('--max_seq_len', default=85, type=int)
+    parser.add_argument('--max_seq_len', default=80, type=int)
     parser.add_argument('--polarities_dim', default=3, type=int)
     parser.add_argument('--hops', default=3, type=int)
     parser.add_argument('--patience', default=5, type=int)
     parser.add_argument('--device', default=None, type=str, help='e.g. cuda:0')
-    parser.add_argument('--seed', default=1234, type=int, help='set seed for reproducibility')
+    parser.add_argument('--seed', default=None, type=int, help='set seed for reproducibility')
     parser.add_argument('--valset_ratio', default=0, type=float, help='set ratio between 0 and 1 for validation support')
     # The following parameters are only valid for the lcf-bert model
     parser.add_argument('--local_context_focus', default='cdm', type=str, help='local context focus mode, cdw or cdm')
-    parser.add_argument('--SRD', default=3, type=int, help='semantic-relative-distance, see the paper of LCF-BERT model')
+    parser.add_argument('--alpha', default=3, type=int, help='relative distance (LOCAL CONTEXT)')
     opt = parser.parse_args()
+    opt.SRD = opt.alpha
 
     if opt.seed is not None:
         random.seed(opt.seed)
@@ -220,17 +196,17 @@ def main():
         os.environ['PYTHONHASHSEED'] = str(opt.seed)
 
     model_classes = {
-        'lcf_bert': LCF_BERT,
+        'RE_BERT': RE_BERT,
     }
     
     dataset_files = {}
     dataset_files[opt.dataset] = {}
     dataset_files[opt.dataset]['train'] = opt.train_file
-    dataset_files[opt.dataset]['test'] = opt.test_file # nao considerar para geracao de metricas
+    dataset_files[opt.dataset]['test'] = opt.train_file # nao considerar para geracao de metricas
     
 
     input_colses = {
-        'lcf_bert': ['concat_bert_indices', 'concat_segments_indices', 'text_bert_indices', 'aspect_bert_indices'],
+        'RE_BERT': ['concat_bert_indices', 'concat_segments_indices', 'text_bert_indices', 'aspect_bert_indices'],
     }
     initializers = {
         'xavier_uniform_': torch.nn.init.xavier_uniform_,
