@@ -1,4 +1,4 @@
-# The code is based on repository: https://github.com/yangheng95/LCF-ABSA
+# The code is based on LCF-BERT (repository: https://github.com/yangheng95/LCF-ABSA)
 
 import torch
 import torch.nn as nn
@@ -6,7 +6,7 @@ import copy
 import numpy as np
 
 from transformers.modeling_bert import BertPooler, BertSelfAttention
-from models import LCF_BERT
+from models.lcf_bert import LCF_BERT
 
 class SelfAttention(nn.Module):
     def __init__(self, config, opt):
