@@ -12,7 +12,6 @@ nltk.download('punkt')
 from data_utils import build_tokenizer, build_embedding_matrix, Tokenizer4Bert, pad_and_truncate
 from models.re_bert import RE_BERT
 from models.lcf_bert import LCF_BERT
-from models.bert_spc import BERT_SPC
 
 from transformers import BertModel
 
