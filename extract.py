@@ -12,6 +12,7 @@ nltk.download('punkt')
 from data_utils import build_tokenizer, build_embedding_matrix, Tokenizer4Bert, pad_and_truncate
 from models.re_bert import RE_BERT
 from models.lcf_bert import LCF_BERT
+from models.bert import BERT
 
 from transformers import BertModel
 
@@ -77,16 +78,17 @@ class Inferer:
 
 
 def get_classifier(opt):
-    model_classes = {
-        'RE_BERT': RE_BERT,
-    }
-    input_colses = {
-        'RE_BERT': ['concat_bert_indices', 'concat_segments_indices', 'text_bert_indices', 'aspect_bert_indices'],
-    }
+    # model_classes = {
+    #     'RE_BERT': RE_BERT,
+    #     'BERT': BERT
+    # }
+    # input_colses = {
+    #     'RE_BERT': ['concat_bert_indices', 'concat_segments_indices', 'text_bert_indices', 'aspect_bert_indices'],
+    #     'BERT': ['concat_bert_indices', 'concat_segments_indices']
+    # }
 
-    opt.model_name = 'RE_BERT'
-    opt.model_class = model_classes[opt.model_name]
-    opt.inputs_cols = input_colses[opt.model_name]
+    # opt.model_class = model_classes[opt.model_name]
+    # opt.inputs_cols = input_colses[opt.model_name]
     # set your trained models here
     opt.state_dict_path = opt.classifier_model_file
 
@@ -160,6 +162,7 @@ def main():
 
     input_colses = {
         'RE_BERT': ['concat_bert_indices', 'concat_segments_indices', 'text_bert_indices', 'aspect_bert_indices'],
+        'BERT': ['concat_bert_indices', 'concat_segments_indices']
     }
     initializers = {
         'xavier_uniform_': torch.nn.init.xavier_uniform_,
@@ -177,6 +180,7 @@ def main():
     }
     model_classes = {
         'RE_BERT': RE_BERT,
+        'BERT': BERT
     }
     opt.model_class = model_classes[opt.model_name]
     opt.inputs_cols = input_colses[opt.model_name]
