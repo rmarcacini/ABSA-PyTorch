@@ -21,6 +21,7 @@ from torch.utils.data import DataLoader, random_split
 from data_utils import build_tokenizer, build_embedding_matrix, Tokenizer4Bert, IOBDataset
 from models.re_bert import RE_BERT
 from models.lcf_bert import LCF_BERT
+from models.bert import BERT
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -189,7 +190,9 @@ def main():
 
     model_classes = {
         'RE_BERT': RE_BERT,
+        'BERT': BERT
     }
+
     
     dataset_files = {}
     dataset_files[opt.dataset] = {}
@@ -198,6 +201,7 @@ def main():
 
     input_colses = {
         'RE_BERT': ['concat_bert_indices', 'concat_segments_indices', 'text_bert_indices', 'aspect_bert_indices'],
+        'BERT': ['concat_bert_indices', 'concat_segments_indices']
     }
     initializers = {
         'xavier_uniform_': torch.nn.init.xavier_uniform_,
